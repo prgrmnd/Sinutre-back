@@ -30,20 +30,19 @@ export async function updateMeData(req: Request, res: Response) {
     targetCalories?: unknown;
   };
 
-  const parsedHeight = Number(height);
-  const parsedWeight = Number(weight);
-  const parsedTargetCalories = Number(targetCalories);
+  const isPositiveNumber = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) && value > 0;
+
+  const isPositiveInteger = (value: unknown) =>
+    typeof value === 'number' && Number.isInteger(value) && value > 0;
 
   if (
-    !Number.isFinite(parsedHeight) ||
-    !Number.isFinite(parsedWeight) ||
-    !Number.isInteger(parsedTargetCalories) ||
-    parsedHeight <= 0 ||
-    parsedWeight <= 0 ||
-    parsedTargetCalories <= 0
+    !isPositiveNumber(height) ||
+    !isPositiveNumber(weight) ||
+    !isPositiveInteger(targetCalories)
   ) {
     return res.status(400).json({
-      error: 'Informe altura, peso e meta calórica válidos.',
+      error: 'Altura, peso e meta calórica devem conter valores válidos.',
     });
   }
 
@@ -52,9 +51,9 @@ export async function updateMeData(req: Request, res: Response) {
       id: req.userId,
     },
     data: {
-      height: parsedHeight,
-      weight: parsedWeight,
-      targetCalories: parsedTargetCalories,
+      height,
+      weight,
+      targetCalories,
     },
     select: {
       id: true,
