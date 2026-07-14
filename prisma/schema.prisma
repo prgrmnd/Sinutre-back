@@ -16,14 +16,17 @@ datasource db {
 }
 
 model User {
-  id          Int       @id @default(autoincrement())
-  githubId    String    @unique
-  githubLogin String    @unique
-  name        String
-  birthDate   DateTime? @map("birth_date")
-  avatarUrl   String?   @map("avatar_url")
-  gender      String    @default("NAO_ESPECIFICADO") // GENDERCHOICE
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id              Int       @id @default(autoincrement())
+  githubId        String    @unique
+  githubLogin     String    @unique
+  name            String
+  birthDate       DateTime? @map("birth_date")
+  avatarUrl       String?   @map("avatar_url")
+  gender          String    @default("NAO_ESPECIFICADO") // GENDERCHOICE
+  height          Float?    @map("height")
+  weight          Float?    @map("weight")
+  targetCalories  Int?      @map("target_calories")
+  createdAt       DateTime  @default(now()) @map("created_at")
 
   meals       Meal[]
   foods       Food[]
