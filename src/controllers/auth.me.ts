@@ -30,10 +30,10 @@ export async function updateMeData(req: Request, res: Response) {
     targetCalories?: unknown;
   };
 
-  const isPositiveNumber = (value: unknown) =>
+  const isPositiveNumber = (value: unknown): value is number =>
     typeof value === 'number' && Number.isFinite(value) && value > 0;
 
-  const isPositiveInteger = (value: unknown) =>
+  const isPositiveInteger = (value: unknown): value is number =>
     typeof value === 'number' && Number.isInteger(value) && value > 0;
 
   if (
