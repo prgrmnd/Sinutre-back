@@ -88,3 +88,13 @@ export async function githubCallback(req: Request, res: Response) {
 
   res.redirect(`${env.frontendUrl}/?token=${token}`);
 }
+
+export async function logout(req: Request, res: Response) {
+  try {
+
+    return res.status(200).json({ message: 'Logout processado. O front-end deve remover o token.' });
+  } catch (error) {
+    console.error('Erro ao realizar logout:', error);
+    return res.status(500).json({ error: 'Erro interno ao tentar processar o logout.' });
+  }
+}
