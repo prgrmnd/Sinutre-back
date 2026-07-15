@@ -92,15 +92,9 @@ export async function githubCallback(req: Request, res: Response) {
 export async function logout(req: Request, res: Response) {
   try {
 
-    res.clearCookie('token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-    });
-
-    return res.status(200).json({ message: 'Logout realizado com sucesso.' });
+    return res.status(200).json({ message: 'Logout processado. O front-end deve remover o token.' });
   } catch (error) {
     console.error('Erro ao realizar logout:', error);
-    return res.status(500).json({ error: 'Erro interno ao encerrar sessão.' });
+    return res.status(500).json({ error: 'Erro interno ao tentar processar o logout.' });
   }
 }
