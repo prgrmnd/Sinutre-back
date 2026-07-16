@@ -72,3 +72,44 @@ foodRouter.delete('/:id', requireAuth, async (req, res) => {
     return res.status(500).json({ error: 'Erro interno ao tentar excluir o alimento.' });
   }
 });
+
+foodRouter.put('/:id', requireAuth, async (req, res) => {
+  const foodId = Number(req.params.id);
+
+  if (!foodId) {
+    return res.status(400).json({ error: 'ID do alimento inválido.' });
+  }
+
+  const {
+    name,
+    caloriesPer100g,
+    carbsPer100g,
+    proteinPer100g,
+    fatPer100g,
+  } = req.body;
+
+  try {
+    const updatedFood = await prisma.food.updateMany({
+      where: {
+        id: foodId,
+        userId: req.userId!,
+      },
+      data: {
+        name,
+        caloriesPer100g,
+        carbsPer100g,
+        proteinPer100g,
+        fatPer100g,
+      },
+    });
+
+    if (updatedFood.count === 0) {
+      return res.status(404).json({ error: 'Alimento não encontrado ou sem permissão para edição.' });
+    }
+
+    return res.status(200).json({ message: 'Alimento atualizado com sucesso.' });
+  } catch (error) {
+    console.error('Erro ao atualizar alimento:', error);
+    return res.status(500).json({ error: 'Erro interno ao tentar atualizar o alimento.' });
+  }
+});
