@@ -169,3 +169,61 @@ export async function createMeal(
   return res.status(201).json(meal);
 }
 
+export async function checkDailyGoal(req: Request, res: Response) {
+  const userId = req.userId!;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { targetCalories: true },
+    });
+
+    if (!user || !user.targetCalories) {
+      return res.json({ 
+        exceeded: false, 
+        totalCalories: 0, 
+        targetCalories: 0 
+      });
+    }
+
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+
+    const todayMeals = await prisma.meal.findMany({
+      where: {
+        userId,
+        eatTime: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+      include: {
+        foods: {
+          include: { food: true },
+        },
+      },
+    });
+
+    let totalCalories = 0;
+    
+    todayMeals.forEach((meal) => {
+      meal.foods.forEach((item) => {
+        const factor = item.foodG / 100;
+        totalCalories += item.food.caloriesPer100g * factor;
+      });
+    });
+
+    const exceeded = totalCalories > user.targetCalories;
+
+    return res.json({
+      exceeded,
+      totalCalories: Math.round(totalCalories),
+      targetCalories: user.targetCalories,
+    });
+    
+  } catch (error) {
+    console.error('Erro ao verificar meta diária:', error);
+    return res.status(500).json({ error: 'Erro interno ao calcular meta.' });
+  }
+}
