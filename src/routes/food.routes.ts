@@ -4,7 +4,27 @@ import { prisma } from '../prisma';
 
 export const foodRouter = Router();
 
-//foods/
+function validateFoodData(data: any) {
+  const { name, caloriesPer100g, carbsPer100g, proteinPer100g, fatPer100g } = data;
+
+  if (typeof name !== 'string' || name.trim() === '') {
+    return 'O nome do alimento é obrigatório e deve ser um texto válido.';
+  }
+
+  const isValidNumber = (val: any) => typeof val === 'number' && !isNaN(val) && val >= 0;
+
+  if (
+    !isValidNumber(caloriesPer100g) ||
+    !isValidNumber(carbsPer100g) ||
+    !isValidNumber(proteinPer100g) ||
+    !isValidNumber(fatPer100g)
+  ) {
+    return 'Calorias e macronutrientes devem ser números válidos (maiores ou iguais a zero).';
+  }
+
+  return null;
+}
+
 foodRouter.get('/', requireAuth, async (req, res) => {
   const search = String(req.query.search ?? '');
   const foods = await prisma.food.findMany({
@@ -23,28 +43,71 @@ foodRouter.get('/', requireAuth, async (req, res) => {
   return res.json(foods);
 });
 
-
 foodRouter.post('/', requireAuth, async (req, res) => {
-  const {
-    name,
-    caloriesPer100g,
-    carbsPer100g,
-    proteinPer100g,
-    fatPer100g,
-  } = req.body;
+  const validationError = validateFoodData(req.body);
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
 
-  const food = await prisma.food.create({
-    data: {
-      name,
-      caloriesPer100g,
-      carbsPer100g,
-      proteinPer100g,
-      fatPer100g,
-      userId: req.userId!,
-    },
-  });
+  const { name, caloriesPer100g, carbsPer100g, proteinPer100g, fatPer100g } = req.body;
 
-  return res.status(201).json(food);
+  try {
+    const food = await prisma.food.create({
+      data: {
+        name: name.trim(),
+        caloriesPer100g,
+        carbsPer100g,
+        proteinPer100g,
+        fatPer100g,
+        userId: req.userId!,
+      },
+    });
+
+    return res.status(201).json(food);
+  } catch (error) {
+    console.error('Erro ao criar alimento:', error);
+    return res.status(500).json({ error: 'Erro interno ao salvar alimento.' });
+  }
+});
+
+foodRouter.put('/:id', requireAuth, async (req, res) => {
+  const foodId = Number(req.params.id);
+
+  if (!foodId) {
+    return res.status(400).json({ error: 'ID do alimento inválido.' });
+  }
+
+  const validationError = validateFoodData(req.body);
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
+
+  const { name, caloriesPer100g, carbsPer100g, proteinPer100g, fatPer100g } = req.body;
+
+  try {
+    const updatedFood = await prisma.food.updateMany({
+      where: {
+        id: foodId,
+        userId: req.userId!,
+      },
+      data: {
+        name: name.trim(),
+        caloriesPer100g,
+        carbsPer100g,
+        proteinPer100g,
+        fatPer100g,
+      },
+    });
+
+    if (updatedFood.count === 0) {
+      return res.status(404).json({ error: 'Alimento não encontrado ou sem permissão para edição.' });
+    }
+
+    return res.status(200).json({ message: 'Alimento atualizado com sucesso.' });
+  } catch (error) {
+    console.error('Erro ao atualizar alimento:', error);
+    return res.status(500).json({ error: 'Erro interno ao tentar atualizar o alimento.' });
+  }
 });
 
 foodRouter.delete('/:id', requireAuth, async (req, res) => {
@@ -70,46 +133,5 @@ foodRouter.delete('/:id', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Erro ao excluir alimento:', error);
     return res.status(500).json({ error: 'Erro interno ao tentar excluir o alimento.' });
-  }
-});
-
-foodRouter.put('/:id', requireAuth, async (req, res) => {
-  const foodId = Number(req.params.id);
-
-  if (!foodId) {
-    return res.status(400).json({ error: 'ID do alimento inválido.' });
-  }
-
-  const {
-    name,
-    caloriesPer100g,
-    carbsPer100g,
-    proteinPer100g,
-    fatPer100g,
-  } = req.body;
-
-  try {
-    const updatedFood = await prisma.food.updateMany({
-      where: {
-        id: foodId,
-        userId: req.userId!,
-      },
-      data: {
-        name,
-        caloriesPer100g,
-        carbsPer100g,
-        proteinPer100g,
-        fatPer100g,
-      },
-    });
-
-    if (updatedFood.count === 0) {
-      return res.status(404).json({ error: 'Alimento não encontrado ou sem permissão para edição.' });
-    }
-
-    return res.status(200).json({ message: 'Alimento atualizado com sucesso.' });
-  } catch (error) {
-    console.error('Erro ao atualizar alimento:', error);
-    return res.status(500).json({ error: 'Erro interno ao tentar atualizar o alimento.' });
   }
 });
