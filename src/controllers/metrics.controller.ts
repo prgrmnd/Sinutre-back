@@ -49,3 +49,11 @@ const today = new Date();
         },
       },
     });
+
+    let totalCalories = 0;
+    recentMeals.forEach((meal) => {
+      meal.foods.forEach((item) => {
+        const factor = item.foodG / 100;
+        totalCalories += item.food.caloriesPer100g * factor;
+      });
+    });
