@@ -13,7 +13,6 @@ export async function getMetrics(req: Request, res: Response) {
     let imcData = null;
 
     if (user && user.weight && user.height) {
-      // Verifica se a altura está em centímetros (ex: 175) e converte para metros (1.75)
       const heightInMeters = user.height > 3 ? user.height / 100 : user.height;
       
       const calcImc = user.weight / (heightInMeters * heightInMeters);
@@ -31,3 +30,22 @@ export async function getMetrics(req: Request, res: Response) {
       };
     }
 
+const today = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const recentMeals = await prisma.meal.findMany({
+      where: {
+        userId,
+        eatTime: {
+          gte: sevenDaysAgo,
+          lte: today,
+        },
+      },
+      include: {
+        foods: {
+          include: { food: true },
+        },
+      },
+    });
