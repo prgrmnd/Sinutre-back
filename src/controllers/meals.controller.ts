@@ -227,3 +227,92 @@ export async function checkDailyGoal(req: Request, res: Response) {
     return res.status(500).json({ error: 'Erro interno ao calcular meta.' });
   }
 }
+
+
+export async function updateMeal(
+  req: Request,
+  res: Response,
+) {
+  const { id } = req.params;
+  const userId = req.userId!;
+  
+  const {
+    type,
+    eatTime,
+    description,
+    items,
+  } = req.body;
+
+  try {
+    const existingMeal = await prisma.meal.findUnique({
+      where: { id: Number(id) },
+    });
+
+    if (!existingMeal) {
+      return res.status(404).json({ error: 'Refeição não encontrada.' });
+    }
+
+    if (existingMeal.userId !== userId) {
+      return res.status(403).json({ error: 'Acesso negado. Esta refeição não pertence a você.' });
+    }
+
+    const updatedMeal = await prisma.$transaction(
+      async (tx) => {
+        const meal = await tx.meal.update({
+          where: { id: Number(id) },
+          data: {
+            type: type !== undefined ? type : existingMeal.type,
+            description: description !== undefined ? description : existingMeal.description,
+            eatTime: eatTime ? new Date(eatTime) : existingMeal.eatTime,
+          },
+        });
+
+        if (items && Array.isArray(items)) {
+          await tx.mealFood.deleteMany({
+            where: { mealId: Number(id) },
+          });
+
+          if (items.length > 0) {
+            const foods = await tx.food.findMany({
+              where: {
+                id: {
+                  in: items.map((i: { foodId: number }) => i.foodId),
+                },
+                userId,
+              },
+            });
+
+            if (foods.length !== items.length) {
+              throw new Error('Um ou mais alimentos não foram encontrados.');
+            }
+
+            await tx.mealFood.createMany({
+              data: items.map((item: { foodId: number; grams: number }) => {
+                const food = foods.find((f) => f.id === item.foodId)!;
+
+                return {
+                  mealId: meal.id,
+                  foodId: food.id,
+                  foodG: item.grams,
+                  calories: (food.caloriesPer100g * item.grams) / 100,
+                  carbs: (food.carbsPer100g * item.grams) / 100,
+                  protein: (food.proteinPer100g * item.grams) / 100,
+                  fat: (food.fatPer100g * item.grams) / 100,
+                };
+              }),
+            });
+          }
+        }
+
+        return meal;
+      }
+    );
+
+    return res.json(updatedMeal);
+  } catch (error: any) {
+    console.error('Erro ao atualizar refeição:', error);
+    return res.status(500).json({ 
+      error: error.message || 'Erro interno ao atualizar a refeição.' 
+    });
+  }
+}
