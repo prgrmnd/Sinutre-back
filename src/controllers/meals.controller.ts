@@ -316,3 +316,31 @@ export async function updateMeal(
     });
   }
 }
+
+export async function deleteMeal(req: Request, res: Response) {
+  try {
+    const mealId = Number(req.params.id);
+    const userId = req.userId;
+
+    const existingMeal = await prisma.meal.findUnique({
+      where: { id: mealId },
+    });
+
+    if (!existingMeal) {
+      return res.status(404).json({ error: 'Refeição não encontrada.' });
+    }
+
+    if (existingMeal.userId !== userId) {
+      return res.status(403).json({ error: 'Acesso negado. Você só pode excluir suas próprias refeições.' });
+    }
+
+    await prisma.meal.delete({
+      where: { id: mealId },
+    });
+
+    return res.status(204).send();
+  } catch (error) {
+    console.error('Erro ao excluir refeição:', error);
+    return res.status(500).json({ error: 'Erro interno ao excluir a refeição.' });
+  }
+}
