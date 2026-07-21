@@ -1,15 +1,11 @@
 import { Request, Response } from 'express';
 import { prisma } from '../prisma';
 
-export async function meals(
-  req: Request,
-  res: Response,
-) {
+export async function meals(req: Request, res: Response) {
   const meals = await prisma.meal.findMany({
     where: {
       userId: req.userId,
     },
-
     include: {
       foods: {
         include: {
@@ -17,7 +13,6 @@ export async function meals(
         },
       },
     },
-
     orderBy: {
       createdAt: 'desc',
     },
@@ -29,22 +24,10 @@ export async function meals(
         const factor = item.foodG / 100;
 
         acc.grams += item.foodG;
-
-        acc.calories +=
-          item.food.caloriesPer100g *
-          factor;
-
-        acc.carbs +=
-          item.food.carbsPer100g *
-          factor;
-
-        acc.proteins +=
-          item.food.proteinPer100g *
-          factor;
-
-        acc.fats +=
-          item.food.fatPer100g *
-          factor;
+        acc.calories += item.food.caloriesPer100g * factor;
+        acc.carbs += item.food.carbsPer100g * factor;
+        acc.proteins += item.food.proteinPer100g * factor;
+        acc.fats += item.food.fatPer100g * factor;
 
         return acc;
       },
@@ -63,9 +46,7 @@ export async function meals(
       type: meal.type,
       createdAt: meal.createdAt,
       eatTime: meal.eatTime,
-
       totals,
-
       items: meal.foods,
     };
   });
@@ -73,98 +54,52 @@ export async function meals(
   return res.json(result);
 }
 
-export async function createMeal(
-  req: Request,
-  res: Response,
-) {
+export async function createMeal(req: Request, res: Response) {
   const userId = req.userId!;
 
-  const {
-    type,
-    eatTime,
-    description,
-    items,
-  } = req.body;
+  const { type, eatTime, description, items } = req.body;
 
-  const meal = await prisma.$transaction(
-    async (tx) => {
-      // Busca os alimentos envolvidos
-      const foods = await tx.food.findMany({
-        where: {
-          id: {
-            in: items.map(
-              (i: { foodId: number }) =>
-                i.foodId,
-            ),
-          },
-
-          userId,
+  const meal = await prisma.$transaction(async (tx) => {
+    const foods = await tx.food.findMany({
+      where: {
+        id: {
+          in: items.map((i: { foodId: number }) => i.foodId),
         },
-      });
+        userId,
+      },
+    });
 
-      if (foods.length !== items.length) {
-        throw new Error(
-          'Alimento não encontrado',
-        );
-      }
+    if (foods.length !== items.length) {
+      throw new Error('Alimento não encontrado');
+    }
 
-      // Cria a refeição
-      const meal = await tx.meal.create({
-        data: {
-          type,
-          eatTime: new Date(eatTime),
-          description,
-          userId,
-        },
-      });
+    const meal = await tx.meal.create({
+      data: {
+        type,
+        eatTime: new Date(eatTime),
+        description,
+        userId,
+      },
+    });
 
-      // Cria MealFood
-      await tx.mealFood.createMany({
-        data: items.map(
-          (
-            item: {
-              foodId: number;
-              grams: number;
-            },
-          ) => {
-            const food = foods.find(
-              (f) => f.id === item.foodId,
-            )!;
+    await tx.mealFood.createMany({
+      data: items.map((item: { foodId: number; grams: number }) => {
+        const food = foods.find((f) => f.id === item.foodId)!;
 
-            return {
-              mealId: meal.id,
+        return {
+          mealId: meal.id,
+          foodId: food.id,
+          foodG: item.grams,
+          calories: (food.caloriesPer100g * item.grams) / 100,
+          carbs: (food.carbsPer100g * item.grams) / 100,
+          protein: (food.proteinPer100g * item.grams) / 100,
+          fat: (food.fatPer100g * item.grams) / 100,
+        };
+      }),
+    });
 
-              foodId: food.id,
-
-              foodG: item.grams,
-
-              calories:
-                (food.caloriesPer100g *
-                  item.grams) /
-                100,
-
-              carbs:
-                (food.carbsPer100g *
-                  item.grams) /
-                100,
-
-              protein:
-                (food.proteinPer100g *
-                  item.grams) /
-                100,
-
-              fat:
-                (food.fatPer100g *
-                  item.grams) /
-                100,
-            };
-          },
-        ),
-      });
-
-      return meal;
-    },
-  );
+    return meal;
+  });
 
   return res.status(201).json(meal);
 }
@@ -179,10 +114,10 @@ export async function checkDailyGoal(req: Request, res: Response) {
     });
 
     if (!user || !user.targetCalories) {
-      return res.json({ 
-        exceeded: false, 
-        totalCalories: 0, 
-        targetCalories: 0 
+      return res.json({
+        exceeded: false,
+        totalCalories: 0,
+        targetCalories: 0,
       });
     }
 
@@ -206,7 +141,7 @@ export async function checkDailyGoal(req: Request, res: Response) {
     });
 
     let totalCalories = 0;
-    
+
     todayMeals.forEach((meal) => {
       meal.foods.forEach((item) => {
         const factor = item.foodG / 100;
@@ -221,27 +156,17 @@ export async function checkDailyGoal(req: Request, res: Response) {
       totalCalories: Math.round(totalCalories),
       targetCalories: user.targetCalories,
     });
-    
   } catch (error) {
     console.error('Erro ao verificar meta diária:', error);
     return res.status(500).json({ error: 'Erro interno ao calcular meta.' });
   }
 }
 
-
-export async function updateMeal(
-  req: Request,
-  res: Response,
-) {
+export async function updateMeal(req: Request, res: Response) {
   const { id } = req.params;
   const userId = req.userId!;
-  
-  const {
-    type,
-    eatTime,
-    description,
-    items,
-  } = req.body;
+
+  const { type, eatTime, description, items } = req.body;
 
   try {
     const existingMeal = await prisma.meal.findUnique({
@@ -256,63 +181,61 @@ export async function updateMeal(
       return res.status(403).json({ error: 'Acesso negado. Esta refeição não pertence a você.' });
     }
 
-    const updatedMeal = await prisma.$transaction(
-      async (tx) => {
-        const meal = await tx.meal.update({
-          where: { id: Number(id) },
-          data: {
-            type: type !== undefined ? type : existingMeal.type,
-            description: description !== undefined ? description : existingMeal.description,
-            eatTime: eatTime ? new Date(eatTime) : existingMeal.eatTime,
-          },
+    const updatedMeal = await prisma.$transaction(async (tx) => {
+      const meal = await tx.meal.update({
+        where: { id: Number(id) },
+        data: {
+          type: type !== undefined ? type : existingMeal.type,
+          description: description !== undefined ? description : existingMeal.description,
+          eatTime: eatTime ? new Date(eatTime) : existingMeal.eatTime,
+        },
+      });
+
+      if (items && Array.isArray(items)) {
+        await tx.mealFood.deleteMany({
+          where: { mealId: Number(id) },
         });
 
-        if (items && Array.isArray(items)) {
-          await tx.mealFood.deleteMany({
-            where: { mealId: Number(id) },
+        if (items.length > 0) {
+          const foods = await tx.food.findMany({
+            where: {
+              id: {
+                in: items.map((i: { foodId: number }) => i.foodId),
+              },
+              userId,
+            },
           });
 
-          if (items.length > 0) {
-            const foods = await tx.food.findMany({
-              where: {
-                id: {
-                  in: items.map((i: { foodId: number }) => i.foodId),
-                },
-                userId,
-              },
-            });
-
-            if (foods.length !== items.length) {
-              throw new Error('Um ou mais alimentos não foram encontrados.');
-            }
-
-            await tx.mealFood.createMany({
-              data: items.map((item: { foodId: number; grams: number }) => {
-                const food = foods.find((f) => f.id === item.foodId)!;
-
-                return {
-                  mealId: meal.id,
-                  foodId: food.id,
-                  foodG: item.grams,
-                  calories: (food.caloriesPer100g * item.grams) / 100,
-                  carbs: (food.carbsPer100g * item.grams) / 100,
-                  protein: (food.proteinPer100g * item.grams) / 100,
-                  fat: (food.fatPer100g * item.grams) / 100,
-                };
-              }),
-            });
+          if (foods.length !== items.length) {
+            throw new Error('Um ou mais alimentos não foram encontrados.');
           }
-        }
 
-        return meal;
+          await tx.mealFood.createMany({
+            data: items.map((item: { foodId: number; grams: number }) => {
+              const food = foods.find((f) => f.id === item.foodId)!;
+
+              return {
+                mealId: meal.id,
+                foodId: food.id,
+                foodG: item.grams,
+                calories: (food.caloriesPer100g * item.grams) / 100,
+                carbs: (food.carbsPer100g * item.grams) / 100,
+                protein: (food.proteinPer100g * item.grams) / 100,
+                fat: (food.fatPer100g * item.grams) / 100,
+              };
+            }),
+          });
+        }
       }
-    );
+
+      return meal;
+    });
 
     return res.json(updatedMeal);
   } catch (error: any) {
     console.error('Erro ao atualizar refeição:', error);
-    return res.status(500).json({ 
-      error: error.message || 'Erro interno ao atualizar a refeição.' 
+    return res.status(500).json({
+      error: error.message || 'Erro interno ao atualizar a refeição.',
     });
   }
 }
@@ -333,6 +256,10 @@ export async function deleteMeal(req: Request, res: Response) {
     if (existingMeal.userId !== userId) {
       return res.status(403).json({ error: 'Acesso negado. Você só pode excluir suas próprias refeições.' });
     }
+
+    await prisma.mealFood.deleteMany({
+      where: { mealId: mealId },
+    });
 
     await prisma.meal.delete({
       where: { id: mealId },
